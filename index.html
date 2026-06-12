@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Portfolio Rebalancing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #121212; color: #f1f1f1; font-family: 'Noto Sans KR', sans-serif; -webkit-tap-highlight-color: transparent; }
+        input[type="number"], input[type="text"] { background-color: #1e1e1e; border: 1px solid #333; color: #fff; border-radius: 6px; padding: 6px 10px; outline: none; transition: border-color 0.2s; font-weight: bold; font-family: 'Noto Sans KR', sans-serif; }
+        input[type="number"]:focus, input[type="text"]:focus { border-color: #D97757; }
+        input[type="number"] { text-align: right; }
+        .tight-num { letter-spacing: -0.5px; }
+        .bottom-sheet { transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); }
+        .bottom-sheet.open { transform: translateY(0); }
+        .backdrop { opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .backdrop.open { opacity: 1; pointer-events: auto; }
+        .list-row:active { background-color: #1a1a1a; }
+        .group-hdr { font-size: 9px; color: #555; text-transform: uppercase; letter-spacing:.08em; padding: 7px 4px 2px; font-weight:700; }
+        .tgt-pop { display:none; position:fixed; background:#1e1e2e; border:1px solid #D97757; border-radius:10px; padding:8px 10px; z-index:300; min-width:160px; box-shadow:0 4px 20px rgba(0,0,0,0.7); white-space:nowrap; }
+        .tgt-pop.show { display:block; }
+        .tgt-pop input { width:72px; font-size:15px; padding:5px 7px; }
+        .update-row.active-row { background:#1a1a1a; }
+        .update-row.active-row .row-ticker { color:#D97757 !important; }
+        .edit-row { display:flex; align-items:center; padding:9px 4px 9px 8px; border-bottom:1px solid #1e1e1e; background:#121212; user-select:none; -webkit-user-select:none; touch-action:pan-x; position:relative; z-index:1; }
+        .drag-handle-btn { color:#444; font-size:18px; padding:4px 8px 4px 2px; cursor:grab; touch-action:none; flex-shrink:0; }
+        #edit-list { position:relative; }
+
+        /* 저장 토스트 */
+        .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px); background:#1e1e1e; border:1px solid #333; color:#aaa; font-size:12px; font-weight:700; padding:8px 18px; border-radius:20px; opacity:0; pointer-events:none; transition:opacity 0.3s, transform 0.3s; z-index:9999; white-space:nowrap; }
+        .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body class="p-3 pb-20 select-none">
+<div class="max-w-md mx-auto">
+
+    <!-- 헤더 -->
+    <header class="flex justify-between items-center mb-3 px-1">
+        <h1 class="text-xl font-black flex items-center gap-1.5">
+            <span class="text-white">Portfolio </span><span class="text-[#D97757]">Rebalancing</span>
+            <img src="image.png" alt=""
+                onerror="this.style.display='none'"
+                style="height:1.2em;width:auto;display:inline-block;vertical-align:middle;object-fit:contain;">
+        </h1>
+        <div class="flex items-center gap-2">
+            <button id="btn-update" onclick="toggleMode('update')"
+                class="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border bg-[#1a1a1a] border-[#333] text-[#aaa]">
+                <i class="fa-solid fa-pencil text-[10px]"></i> 업데이트
+            </button>
+            <button id="btn-edit" onclick="toggleMode('edit')"
+                class="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border bg-[#1a1a1a] border-[#333] text-[#aaa]">
+                <i class="fa-solid fa-sliders text-[10px]"></i> 편집
+            </button>
+        </div>
+    </header>
+
+    <!-- 합계 카드 -->
+    <div class="bg-[#1a1a1a] px-3.5 py-2.5 rounded-xl border border-[#333] mb-3 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <div class="text-[9px] text-[#888] font-bold mb-1">현재 합계</div>
+                <div class="flex items-center gap-1.5">
+                    <span class="text-base font-black text-white tight-num" id="current-total">$0</span>
+                    <span class="bg-[#2d2d2d] text-[#aaa] text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1">
+                        <i class="fa-solid fa-wallet text-[8px]"></i>
+                        <span id="current-cash-ratio">0.0%</span>
+                    </span>
+                </div>
+            </div>
+            <div class="w-px h-7 bg-[#333]"></div>
+            <div class="text-right cursor-pointer" onclick="editTargetTotal()">
+                <div class="text-[9px] text-[#D97757] font-bold mb-1 flex items-center justify-end gap-1">
+                    목표 합계 <i class="fa-solid fa-pen text-[8px] opacity-60"></i>
+                </div>
+                <div class="flex items-center justify-end gap-1.5">
+                    <span class="text-base font-black text-white tight-num" id="target-total">$0</span>
+                    <span class="bg-[#D97757]/15 text-[#D97757] border border-[#D97757]/30 text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1">
+                        <i class="fa-solid fa-wallet text-[8px]"></i>
+                        <span id="target-cash-ratio">0.0%</span>
+                    </span>
+                </div>
+            </div>
+            <div class="w-px h-7 bg-[#333]"></div>
+            <div class="text-right cursor-pointer" onclick="editGatherDate()">
+                <div class="text-[9px] text-[#888] font-bold mb-1">모으기</div>
+                <div class="text-[10px] font-bold text-[#555]" id="gather-date-lbl">미설정</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 컬럼 헤더 -->
+    <div id="col-header" class="flex items-center py-1.5 text-[9px] text-[#555] border-b border-[#2d2d2d] px-1 font-bold mb-0.5">
+        <div class="w-[17%]">종목</div>
+        <div class="w-[28%] text-right pr-1">현재</div>
+        <div class="w-[28%] text-right pr-1">목표</div>
+        <div class="w-[27%] text-right">리밸런싱</div>
+    </div>
+    <div id="list-container"></div>
+</div>
+
+<!-- 백드롭 -->
+<div id="backdrop" class="fixed inset-0 bg-black/75 z-40 backdrop" onclick="closeBackdrop()"></div>
+
+<!-- 목표% 팝업 -->
+<div id="tgt-pop" class="tgt-pop">
+    <div class="flex justify-between items-center mb-1.5">
+        <span class="text-[10px] text-[#aaa] font-bold" id="tgt-pop-title"></span>
+        <span class="text-[10px] font-black" id="tgt-pop-sum"></span>
+    </div>
+    <div class="flex items-center gap-1.5">
+        <input type="number" id="tgt-pop-input" step="0.1" class="text-[#D97757]"
+            style="width:72px;font-size:15px;padding:5px 7px;"
+            oninput="onTgtInput()" onkeydown="if(event.key==='Enter') applyTgt()">
+        <span class="text-[#888] font-bold">%</span>
+        <button onclick="applyTgt()" class="bg-[#D97757] text-black text-[11px] font-black px-3 py-1.5 rounded-lg active:opacity-80">완료</button>
+    </div>
+</div>
+
+<!-- 날짜 바텀시트 -->
+<div id="date-sheet" class="fixed bottom-0 left-0 right-0 bg-[#171717] rounded-t-2xl z-50 bottom-sheet max-w-md mx-auto border-t border-[#333] pb-6 shadow-xl">
+    <div class="p-5">
+        <div class="text-xs text-[#888] font-bold mb-3">모으기 목표 날짜 <span class="text-[#555]">(주말 제외 거래일 기준)</span></div>
+        <input type="date" id="date-input" class="w-full text-sm mb-2"
+            style="background:#1e1e1e;border:1px solid #333;color:#fff;border-radius:8px;padding:9px 12px;outline:none;"
+            oninput="onDateInput()">
+        <div class="text-[11px] text-[#888] mb-4 font-bold" id="date-info">날짜를 선택하세요</div>
+        <div class="flex gap-2">
+            <button onclick="applyDate()" class="flex-1 bg-[#D97757] text-black font-black py-3.5 rounded-xl text-sm active:opacity-80">적용</button>
+            <button onclick="clearDate()" class="bg-[#2d2d2d] text-[#aaa] font-bold py-3.5 px-5 rounded-xl text-sm">초기화</button>
+        </div>
+    </div>
+</div>
+
+<!-- 목표총액 바텀시트 -->
+<div id="total-sheet" class="fixed bottom-0 left-0 right-0 bg-[#171717] rounded-t-2xl z-50 bottom-sheet max-w-md mx-auto border-t border-[#333] pb-6 shadow-xl">
+    <div class="p-5">
+        <div class="text-xs text-[#888] font-bold mb-3">목표 총액 설정 <span class="text-[10px] text-[#555]">(비워두면 현재 총액과 동일)</span></div>
+        <div class="relative mb-4">
+            <span class="absolute left-3 top-3 text-[#555] font-bold">$</span>
+            <input type="number" id="total-input" class="w-full text-base" placeholder="0" style="padding:10px 12px 10px 28px;">
+        </div>
+        <button onclick="applyTotalSheet()" class="w-full bg-[#D97757] text-black font-black py-3.5 rounded-xl text-sm active:opacity-80">적용</button>
+    </div>
+</div>
+
+<!-- 저장 토스트 -->
+<div id="toast" class="toast"><i class="fa-solid fa-check mr-1.5 text-[#D97757]"></i> 저장됨</div>
+
+<script>
+const LS_KEY = 'portfolio_v1';
+
+// ─── 기본 데이터 (최초 1회만 사용) ───
+const DEFAULT_PORTFOLIO = [
+    { id:1, ticker:'SGOV', currentAmt:18568, targetPct:25.0, isCash:true,  group:'현금성' },
+    { id:2, ticker:'PICK', currentAmt:3450,  targetPct:5.0,  isCash:true,  group:'현금성' },
+    { id:3, ticker:'PDBC', currentAmt:2100,  targetPct:3.0,  isCash:true,  group:'현금성' },
+    { id:4, ticker:'TLT',  currentAmt:10398, targetPct:14.0, isCash:false, group:'채권'   },
+    { id:5, ticker:'AAPL', currentAmt:12500, targetPct:20.0, isCash:false, group:'빅테크' },
+    { id:6, ticker:'MSFT', currentAmt:9800,  targetPct:15.0, isCash:false, group:'빅테크' },
+    { id:7, ticker:'IONQ', currentAmt:742,   targetPct:1.0,  isCash:false, group:'기타'   },
+];
+
+// ─── 상태 변수 ───
+let portfolio, targetTotalOverride, gatherDate, mode, activeTgtId, activeUpdateIdx;
+let ALL_GROUPS = ['현금성','채권','빅테크','ETF','기타'];
+const LOCKED_GROUP = '현금성'; // 삭제/이름변경 불가
+
+// ─── localStorage 저장/불러오기 ───
+function saveState() {
+    const state = {
+        portfolio,
+        targetTotalOverride,
+        gatherDate: gatherDate ? gatherDate.toISOString() : null,
+        allGroups: ALL_GROUPS,
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+    showToast();
+}
+
+function loadState() {
+    try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (raw) {
+            const s = JSON.parse(raw);
+            portfolio           = s.portfolio           || DEFAULT_PORTFOLIO;
+            targetTotalOverride = s.targetTotalOverride ?? null;
+            gatherDate          = s.gatherDate ? new Date(s.gatherDate) : null;
+            ALL_GROUPS          = s.allGroups  || ALL_GROUPS;
+        } else {
+            resetToDefault();
+        }
+    } catch(e) {
+        resetToDefault();
+    }
+    mode            = 'view';
+    activeTgtId     = null;
+    activeUpdateIdx = 0;
+}
+
+function resetToDefault() {
+    portfolio           = JSON.parse(JSON.stringify(DEFAULT_PORTFOLIO));
+    targetTotalOverride = null;
+    gatherDate          = null;
+    ALL_GROUPS          = ['현금성','채권','빅테크','ETF','기타'];
+}
+
+// ─── 토스트 ───
+let toastTimer;
+function showToast() {
+    const t = document.getElementById('toast');
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+// ─── 계산 ───
+function calcTotals() {
+    const cur = portfolio.reduce((s,i) => s + Number(i.currentAmt), 0);
+    const tgt = targetTotalOverride !== null ? targetTotalOverride : cur;
+    const curCash    = portfolio.filter(i=>i.isCash).reduce((s,i) => s + Number(i.currentAmt), 0);
+    const tgtCashPct = portfolio.filter(i=>i.isCash).reduce((s,i) => s + Number(i.targetPct), 0);
+    return { cur, tgt, curCashRatio: cur>0 ? curCash/cur*100 : 0, tgtCashPct };
+}
+function tradingDays(from, to) {
+    let c=0, d=new Date(from); d.setDate(d.getDate()+1);
+    while(d<=to){ const w=d.getDay(); if(w&&w!==6)c++; d.setDate(d.getDate()+1); }
+    return c;
+}
+function tgtPctSum() { return portfolio.reduce((s,i) => s + Number(i.targetPct), 0); }
+
+// ─── 모드 ───
+function toggleMode(m) {
+    mode = (mode===m) ? 'view' : m;
+    if (mode==='update') activeUpdateIdx = 0;
+    updateModeButtons();
+    render();
+    if (mode==='update') focusUpdateRow(0);
+}
+function updateModeButtons() {
+    ['update','edit'].forEach(m2 => {
+        document.getElementById('btn-'+m2).className = (mode===m2)
+            ? 'flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border bg-[#D97757]/15 border-[#D97757]/50 text-[#D97757]'
+            : 'flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border bg-[#1a1a1a] border-[#333] text-[#aaa]';
+    });
+}
+
+// ─── 렌더 ───
+function render() {
+    const t = calcTotals();
+    document.getElementById('current-total').textContent      = '$'+Math.round(t.cur).toLocaleString();
+    document.getElementById('current-cash-ratio').textContent = t.curCashRatio.toFixed(1)+'%';
+    document.getElementById('target-total').textContent       = '$'+Math.round(t.tgt).toLocaleString();
+    document.getElementById('target-cash-ratio').textContent  = t.tgtCashPct.toFixed(1)+'%';
+
+    // 날짜 라벨 복원
+    const dlbl = document.getElementById('gather-date-lbl');
+    if (gatherDate) {
+        dlbl.textContent  = gatherDate.toISOString().slice(0,10);
+        dlbl.className    = 'text-[10px] font-bold text-[#D97757]';
+    } else {
+        dlbl.textContent  = '미설정';
+        dlbl.className    = 'text-[10px] font-bold text-[#555]';
+    }
+
+    const hdr = document.getElementById('col-header');
+    const lc  = document.getElementById('list-container');
+    lc.innerHTML = '';
+
+    if (mode==='view') {
+        hdr.style.display='flex';
+        hdr.innerHTML=`<div class="w-[17%]">종목</div><div class="w-[28%] text-right pr-1">현재</div><div class="w-[28%] text-right pr-1">목표</div><div class="w-[27%] text-right">리밸런싱</div>`;
+        renderView(lc, t);
+    } else if (mode==='update') {
+        hdr.style.display='flex';
+        hdr.innerHTML=`<div class="w-[28%]">종목</div><div class="w-[72%] text-right">현재 금액 ($)</div>`;
+        renderUpdate(lc);
+    } else if (mode==='edit') {
+        hdr.style.display='flex';
+        hdr.innerHTML=`<div class="w-[8%]"></div><div class="w-[22%]">종목</div><div class="w-[18%] text-center">현금</div><div class="w-[22%] text-center">그룹</div><div class="w-[30%] text-right pr-2">삭제</div>`;
+        renderEdit(lc);
+    }
+}
+
+// ── VIEW ──
+function getGroups() {
+    const seen=[], order=[];
+    portfolio.forEach(i => { if(!seen.includes(i.group)){ seen.push(i.group); order.push(i.group); } });
+    return order;
+}
+function renderView(lc, t) {
+    getGroups().forEach(g => {
+        const items = portfolio.filter(i => i.group===g);
+        if (!items.length) return;
+        const ghdr = document.createElement('div');
+        ghdr.className='group-hdr'; ghdr.textContent=g;
+        lc.appendChild(ghdr);
+
+        items.forEach(item => {
+            const curPct  = t.cur>0 ? item.currentAmt/t.cur*100 : 0;
+            const tgtAmt  = t.tgt * item.targetPct / 100;
+            const diff    = tgtAmt - item.currentAmt;
+            let actionText='-', actionColor='text-[#555]';
+            if (diff > 1)  { actionText='+$'+Math.round(diff).toLocaleString();            actionColor='text-[#ef4444]'; }
+            if (diff < -1) { actionText='-$'+Math.abs(Math.round(diff)).toLocaleString();  actionColor='text-[#3b82f6]'; }
+            let gatherText='';
+            if (gatherDate && Math.abs(diff)>1) {
+                const days=tradingDays(new Date(), gatherDate);
+                if (days>0) gatherText='$'+Math.round(Math.abs(diff)/days).toLocaleString();
+            }
+            const tickerColor = item.isCash ? 'text-[#D97757]' : 'text-white';
+            const row = document.createElement('div');
+            row.className='flex items-center py-2.5 border-b border-[#1e1e1e] list-row px-1';
+            row.innerHTML=`
+                <div class="w-[17%] font-black ${tickerColor} text-[13px] truncate tracking-tighter">${item.ticker}</div>
+                <div class="w-[28%] flex items-center justify-end gap-1 pr-1">
+                    <span class="text-white text-xs font-bold tight-num">$${Math.round(item.currentAmt).toLocaleString()}</span>
+                    <span class="bg-[#2d2d2d] text-[#aaa] text-[9px] px-1 py-0.5 rounded font-bold w-[30px] text-center">${curPct.toFixed(1)}</span>
+                </div>
+                <div class="w-[28%] flex items-center justify-end gap-1 pr-1" style="position:relative;">
+                    <span class="text-white text-xs font-bold tight-num">$${Math.round(tgtAmt).toLocaleString()}</span>
+                    <button onclick="openTgtPop(${item.id}, this)"
+                        class="bg-[#D97757]/15 text-[#D97757] border border-[#D97757]/40 text-[9px] px-1 py-0.5 rounded font-black w-[30px] text-center active:bg-[#D97757]/30">
+                        ${item.targetPct.toFixed(1)}
+                    </button>
+                </div>
+                <div class="w-[27%] text-right flex flex-col items-end">
+                    <span class="font-black text-xs ${actionColor} tight-num">${actionText}</span>
+                    ${gatherText?`<span class="text-[9px] text-[#555] tight-num">${gatherText}</span>`:''}
+                </div>`;
+            lc.appendChild(row);
+        });
+    });
+}
+
+// ── UPDATE ──
+function renderUpdate(lc) {
+    portfolio.forEach((item, idx) => {
+        const isActive=idx===activeUpdateIdx;
+        const tickerColor=item.isCash?'text-[#D97757]':'text-white';
+        const row=document.createElement('div');
+        row.className='update-row flex items-center justify-between py-2 border-b border-[#1e1e1e] px-1'+(isActive?' active-row':'');
+        row.innerHTML=`
+            <div class="w-[28%] font-black ${tickerColor} text-sm row-ticker">${item.ticker}</div>
+            <div class="w-[72%] relative">
+                <span class="absolute left-2.5 top-2 text-[#555] text-sm font-bold">$</span>
+                <input type="number" id="upd-inp-${idx}" class="w-full text-sm font-bold pl-7"
+                    value="${item.currentAmt}"
+                    onfocus="setActiveUpdateRow(${idx})"
+                    onkeydown="onUpdateKey(event,${idx})">
+            </div>`;
+        lc.appendChild(row);
+    });
+    const done=document.createElement('button');
+    done.className='w-full mt-4 bg-[#2d2d2d] text-white py-3 rounded-xl text-sm font-bold active:bg-[#333]';
+    done.textContent='입력 완료';
+    done.onclick=()=>{ saveAllUpdateInputs(); mode='view'; updateModeButtons(); saveState(); render(); };
+    lc.appendChild(done);
+}
+function setActiveUpdateRow(idx) {
+    activeUpdateIdx=idx;
+    document.querySelectorAll('.update-row').forEach((r,i)=>{
+        r.classList.toggle('active-row', i===idx);
+        const tk=r.querySelector('.row-ticker');
+        if(tk) tk.className='row-ticker font-black text-sm '+(portfolio[i].isCash?'text-[#D97757]':(i===idx?'text-[#D97757]':'text-white'));
+    });
+}
+function focusUpdateRow(idx) {
+    setTimeout(()=>{ const inp=document.getElementById('upd-inp-'+idx); if(inp){inp.focus();inp.select();} },60);
+}
+function onUpdateKey(e, idx) {
+    if (e.key==='Enter'||e.key==='Tab') {
+        e.preventDefault();
+        const inp=document.getElementById('upd-inp-'+idx);
+        const v=parseFloat(inp.value); if(!isNaN(v)) portfolio[idx].currentAmt=v;
+        const next=idx+1;
+        if (next<portfolio.length) { activeUpdateIdx=next; setActiveUpdateRow(next); focusUpdateRow(next); }
+        else { saveAllUpdateInputs(); mode='view'; updateModeButtons(); saveState(); render(); }
+    }
+}
+function saveAllUpdateInputs() {
+    portfolio.forEach((item,i)=>{
+        const el=document.getElementById('upd-inp-'+i);
+        if(el){ const v=parseFloat(el.value); if(!isNaN(v)) item.currentAmt=v; }
+    });
+}
+
+// ── EDIT ──
+function renderEdit(lc) {
+    // ── 그룹 관리 섹션 ──
+    const grpSection = document.createElement('div');
+    grpSection.className = 'mb-3';
+
+    const grpTitle = document.createElement('div');
+    grpTitle.className = 'group-hdr mb-1';
+    grpTitle.textContent = '그룹 관리';
+    grpSection.appendChild(grpTitle);
+
+    ALL_GROUPS.forEach(g => {
+        const isLocked = g === LOCKED_GROUP;
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-2 py-1.5 border-b border-[#1e1e1e] px-1';
+
+        // 그룹명 입력 or 고정 라벨
+        if (isLocked) {
+            row.innerHTML = `
+                <div class="flex-1 flex items-center gap-2">
+                    <i class="fa-solid fa-lock text-[#555] text-[10px]"></i>
+                    <span class="text-xs font-bold text-[#D97757]">${g}</span>
+                    <span class="text-[9px] text-[#444]">고정 (현금성 자산)</span>
+                </div>`;
+        } else {
+            const countInGroup = portfolio.filter(p => p.group === g).length;
+            const inp = document.createElement('input');
+            inp.type = 'text';
+            inp.value = g;
+            inp.className = 'flex-1 text-xs font-bold';
+            inp.style.cssText = 'padding:4px 7px;';
+            inp.onchange = () => {
+                const newName = inp.value.trim();
+                if (!newName || ALL_GROUPS.includes(newName)) { inp.value = g; return; }
+                const idx = ALL_GROUPS.indexOf(g);
+                ALL_GROUPS[idx] = newName;
+                portfolio.forEach(p => { if (p.group === g) p.group = newName; });
+                saveState(); render();
+            };
+
+            const countBadge = document.createElement('span');
+            countBadge.className = 'text-[9px] text-[#555] font-bold';
+            countBadge.textContent = countInGroup + '개';
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'text-[#ef4444] text-sm pl-1';
+            delBtn.innerHTML = '<i class="fa-solid fa-circle-minus"></i>';
+            delBtn.onclick = () => {
+                if (countInGroup > 0) {
+                    // 속한 종목이 있으면 이동 확인 없이 첫 번째 다른 그룹으로
+                    const fallback = ALL_GROUPS.find(x => x !== g) || LOCKED_GROUP;
+                    portfolio.forEach(p => { if (p.group === g) p.group = fallback; });
+                }
+                ALL_GROUPS = ALL_GROUPS.filter(x => x !== g);
+                saveState(); render();
+            };
+
+            row.appendChild(inp);
+            row.appendChild(countBadge);
+            row.appendChild(delBtn);
+        }
+        grpSection.appendChild(row);
+    });
+
+    // 그룹 추가 버튼
+    const addGrpBtn = document.createElement('button');
+    addGrpBtn.className = 'w-full mt-1.5 border border-dashed border-[#2a2a2a] text-[#555] py-2 rounded-lg text-xs font-bold active:bg-[#1a1a1a]';
+    addGrpBtn.innerHTML = '<i class="fa-solid fa-plus mr-1"></i> 그룹 추가';
+    addGrpBtn.onclick = () => {
+        const name = '새그룹' + (ALL_GROUPS.length);
+        ALL_GROUPS.push(name);
+        saveState(); render();
+    };
+    grpSection.appendChild(addGrpBtn);
+    lc.appendChild(grpSection);
+
+    // 구분선
+    const sep = document.createElement('div');
+    sep.className = 'group-hdr mt-2 mb-1';
+    sep.textContent = '종목';
+    lc.appendChild(sep);
+
+    // ── 종목 리스트 ──
+    const wrap=document.createElement('div'); wrap.id='edit-list';
+    lc.appendChild(wrap);
+    portfolio.forEach(item=>wrap.appendChild(buildEditRow(item)));
+    const addBtn=document.createElement('button');
+    addBtn.className='w-full mt-3 border border-dashed border-[#333] text-[#666] py-3 rounded-xl text-sm font-bold active:bg-[#1a1a1a]';
+    addBtn.innerHTML='<i class="fa-solid fa-plus mr-1"></i> 새 종목 추가';
+    addBtn.onclick=()=>{ portfolio.push({id:Date.now(),ticker:'',currentAmt:0,targetPct:0,isCash:false,group: ALL_GROUPS[ALL_GROUPS.length-1]||'기타'}); saveState(); render(); };
+    lc.appendChild(addBtn);
+    initSortable(wrap);
+}
+function buildEditRow(item) {
+    const cashColor=item.isCash?'text-[#D97757]':'text-[#444]';
+    const groupOpts=ALL_GROUPS.map(g=>`<option value="${g}" ${item.group===g?'selected':''}>${g}</option>`).join('');
+    const row=document.createElement('div');
+    row.className='edit-row'; row.dataset.id=item.id;
+    row.innerHTML=`
+        <div class="drag-handle-btn w-[8%] flex justify-center"><i class="fa-solid fa-grip-lines text-[#3a3a3a]"></i></div>
+        <div class="w-[22%]">
+            <input type="text" class="w-full text-xs font-bold uppercase" style="padding:4px 6px;"
+                value="${item.ticker}"
+                onchange="portfolio.find(p=>p.id===${item.id}).ticker=this.value.toUpperCase(); saveState();">
+        </div>
+        <div class="w-[18%] flex justify-center">
+            <button onclick="toggleCash(${item.id})" class="text-lg transition-colors ${cashColor}">
+                <i class="fa-solid fa-wallet"></i>
+            </button>
+        </div>
+        <div class="w-[22%]">
+            <select style="background:#1e1e1e;border:1px solid #333;color:#aaa;border-radius:5px;padding:3px 4px;font-size:10px;width:100%;outline:none;"
+                onchange="portfolio.find(p=>p.id===${item.id}).group=this.value; saveState();">
+                ${groupOpts}
+            </select>
+        </div>
+        <div class="w-[30%] flex justify-end pr-2">
+            <button onclick="deleteItem(${item.id})" class="text-[#ef4444]">
+                <i class="fa-solid fa-circle-minus text-base"></i>
+            </button>
+        </div>`;
+    return row;
+}
+function initSortable(list) {
+    let dragging=null, ghost=null, startY=0;
+    function getRows(){ return Array.from(list.querySelectorAll('.edit-row')); }
+    function onPointerDown(e) {
+        if (!e.target.closest('.drag-handle-btn')) return;
+        e.preventDefault();
+        dragging=e.target.closest('.edit-row');
+        startY=e.touches?e.touches[0].clientY:e.clientY;
+        const rect=dragging.getBoundingClientRect();
+        ghost=dragging.cloneNode(true);
+        ghost.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;background:#1c1c2e;box-shadow:0 12px 40px rgba(0,0,0,0.8);border-radius:8px;z-index:9999;pointer-events:none;opacity:0.97;`;
+        document.body.appendChild(ghost);
+        dragging.style.opacity='0';
+        document.addEventListener('pointermove',onMove,{passive:false});
+        document.addEventListener('pointerup',onUp);
+        document.addEventListener('touchmove',onTMove,{passive:false});
+        document.addEventListener('touchend',onUp);
+    }
+    function onMove(e){ if(!ghost)return; e.preventDefault(); moveGhost(e.clientY); reorder(e.clientY); startY=e.clientY; }
+    function onTMove(e){ if(!ghost)return; e.preventDefault(); moveGhost(e.touches[0].clientY); reorder(e.touches[0].clientY); startY=e.touches[0].clientY; }
+    function moveGhost(cy){ const delta=cy-startY; ghost.style.top=(parseFloat(ghost.style.top)+delta)+'px'; }
+    function reorder(cy){
+        getRows().forEach(r=>{
+            if(r===dragging)return;
+            const rect=r.getBoundingClientRect(), mid=rect.top+rect.height/2;
+            if(cy>mid-4&&cy<mid+rect.height){ getRows().indexOf(dragging)>getRows().indexOf(r)?r.before(dragging):r.after(dragging); }
+        });
+    }
+    function onUp(){
+        document.removeEventListener('pointermove',onMove); document.removeEventListener('pointerup',onUp);
+        document.removeEventListener('touchmove',onTMove);  document.removeEventListener('touchend',onUp);
+        if(ghost){ghost.remove();ghost=null;}
+        if(dragging){dragging.style.opacity='';}
+        const newOrder=getRows().map(r=>portfolio.find(p=>p.id===Number(r.dataset.id))).filter(Boolean);
+        portfolio=newOrder; dragging=null;
+        setTimeout(()=>{ saveState(); render(); },80);
+    }
+    list.addEventListener('pointerdown',onPointerDown);
+    list.addEventListener('touchstart',e=>{
+        if(e.target.closest('.drag-handle-btn')) onPointerDown({target:e.target,preventDefault:()=>e.preventDefault(),clientY:e.touches[0].clientY,touches:e.touches});
+    },{passive:false});
+}
+function deleteItem(id){ portfolio=portfolio.filter(p=>p.id!==id); saveState(); render(); }
+function toggleCash(id){ const i=portfolio.find(p=>p.id===id); if(i){i.isCash=!i.isCash; saveState(); render();} }
+
+// ── 목표% 팝업 ──
+function openTgtPop(id, btn) {
+    activeTgtId=id;
+    const item=portfolio.find(p=>p.id===id);
+    document.getElementById('tgt-pop-title').textContent=item.ticker+' 목표 비중';
+    document.getElementById('tgt-pop-input').value=item.targetPct.toFixed(1);
+    updateTgtPopSum();
+    const pop=document.getElementById('tgt-pop');
+    const rect=btn.getBoundingClientRect();
+    pop.style.top=(rect.bottom+4)+'px'; pop.style.right='12px'; pop.style.left='auto';
+    pop.classList.add('show');
+    document.getElementById('backdrop').style.background='transparent';
+    document.getElementById('backdrop').classList.add('open');
+    setTimeout(()=>document.getElementById('tgt-pop-input').focus(),30);
+}
+function updateTgtPopSum(){
+    const s=tgtPctSum(), el=document.getElementById('tgt-pop-sum');
+    el.textContent='합계 '+s.toFixed(1)+'%';
+    el.className=Math.abs(s-100)<0.05?'text-[10px] font-black text-[#3dd68c]':s>100?'text-[10px] font-black text-[#ef4444]':'text-[10px] font-black text-[#D97757]';
+}
+function onTgtInput(){
+    const v=parseFloat(document.getElementById('tgt-pop-input').value);
+    if(!isNaN(v)&&activeTgtId){ portfolio.find(p=>p.id===activeTgtId).targetPct=v; updateTgtPopSum();
+        const t=calcTotals(); document.getElementById('target-cash-ratio').textContent=t.tgtCashPct.toFixed(1)+'%'; }
+}
+function applyTgt(){
+    const v=parseFloat(document.getElementById('tgt-pop-input').value);
+    if(!isNaN(v)&&activeTgtId) portfolio.find(p=>p.id===activeTgtId).targetPct=v;
+    closeTgtPop(); saveState(); render();
+}
+function closeTgtPop(){ document.getElementById('tgt-pop').classList.remove('show'); activeTgtId=null; }
+
+// ── 공통 UI ──
+function closeBackdrop(){
+    document.getElementById('backdrop').classList.remove('open');
+    document.getElementById('backdrop').style.background='';
+    closeTgtPop(); closeSheet('date-sheet'); closeSheet('total-sheet');
+}
+function closeSheet(id){ document.getElementById(id).classList.remove('open'); }
+function openSheet(id){
+    document.getElementById('backdrop').style.background='';
+    document.getElementById('backdrop').classList.add('open');
+    document.getElementById(id).classList.add('open');
+}
+
+// ── 목표 총액 ──
+function editTargetTotal(){
+    document.getElementById('total-input').value=targetTotalOverride!==null?targetTotalOverride:Math.round(calcTotals().cur);
+    openSheet('total-sheet');
+}
+function applyTotalSheet(){
+    const v=parseFloat(document.getElementById('total-input').value);
+    targetTotalOverride=isNaN(v)||v===0?null:v;
+    closeBackdrop(); saveState(); render();
+}
+
+// ── 날짜 ──
+function editGatherDate(){ openSheet('date-sheet'); }
+function onDateInput(){
+    const v=document.getElementById('date-input').value;
+    if(!v){document.getElementById('date-info').textContent='날짜를 선택하세요';return;}
+    const days=tradingDays(new Date(),new Date(v));
+    const t=calcTotals();
+    const need=portfolio.filter(i=>t.tgt*i.targetPct/100>i.currentAmt).reduce((s,i)=>s+(t.tgt*i.targetPct/100-i.currentAmt),0);
+    document.getElementById('date-info').innerHTML=days>0
+        ?`거래일 <span class="text-[#D97757]">${days}일</span> · 일 <span class="text-[#D97757]">$${Math.round(need/days).toLocaleString()}</span>`
+        :'<span class="text-[#ef4444]">유효하지 않은 날짜</span>';
+}
+function applyDate(){
+    const v=document.getElementById('date-input').value; if(!v)return;
+    gatherDate=new Date(v);
+    closeBackdrop(); saveState(); render();
+}
+function clearDate(){
+    gatherDate=null;
+    document.getElementById('date-input').value='';
+    document.getElementById('date-info').textContent='날짜를 선택하세요';
+    closeBackdrop(); saveState(); render();
+}
+
+// ─── 시작 ───
+loadState();
+render();
+</script>
+</body>
+</html>
