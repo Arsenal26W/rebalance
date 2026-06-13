@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Portfolio Rebalancing</title>
+    <title>Rebalancing</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
@@ -24,11 +24,9 @@
         .tgt-pop input { width:72px; font-size:15px; padding:5px 7px; }
         .update-row.active-row { background:#1a1a1a; }
         .update-row.active-row .row-ticker { color:#D97757 !important; }
-        .edit-row { display:flex; align-items:center; padding:9px 4px 9px 8px; border-bottom:1px solid #1e1e1e; background:#121212; user-select:none; -webkit-user-select:none; touch-action:pan-x; position:relative; z-index:1; }
+        .edit-row { display:flex; align-items:center; padding:9px 4px 9px 8px; border-bottom:1px solid #1e1e1e; background:#121212; user-select:none; -webkit-user-select:none; position:relative; z-index:1; }
         .drag-handle-btn { color:#444; font-size:18px; padding:4px 8px 4px 2px; cursor:grab; touch-action:none; flex-shrink:0; }
         #edit-list { position:relative; }
-
-        /* 저장 토스트 */
         .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px); background:#1e1e1e; border:1px solid #333; color:#aaa; font-size:12px; font-weight:700; padding:8px 18px; border-radius:20px; opacity:0; pointer-events:none; transition:opacity 0.3s, transform 0.3s; z-index:9999; white-space:nowrap; }
         .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
     </style>
@@ -39,53 +37,58 @@
     <!-- 헤더 -->
     <header class="flex justify-between items-center mb-3 px-1">
         <h1 class="text-xl font-black flex items-center gap-1.5">
-            <span class="text-white">Portfolio </span><span class="text-[#D97757]">Rebalancing</span>
+            <span class="text-[#D97757]">Rebalancing</span>
             <img src="image.png" alt=""
                 onerror="this.style.display='none'"
                 style="height:1.2em;width:auto;display:inline-block;vertical-align:middle;object-fit:contain;">
         </h1>
         <div class="flex items-center gap-2">
             <button id="btn-update" onclick="toggleMode('update')"
-                class="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border bg-[#1a1a1a] border-[#333] text-[#aaa]">
-                <i class="fa-solid fa-pencil text-[10px]"></i> 업데이트
+                class="flex items-center justify-center w-8 h-8 rounded-lg border bg-[#1a1a1a] border-[#333] text-[#aaa]">
+                <i class="fa-solid fa-pencil text-sm"></i>
             </button>
             <button id="btn-edit" onclick="toggleMode('edit')"
-                class="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border bg-[#1a1a1a] border-[#333] text-[#aaa]">
-                <i class="fa-solid fa-sliders text-[10px]"></i> 편집
+                class="flex items-center justify-center w-8 h-8 rounded-lg border bg-[#1a1a1a] border-[#333] text-[#aaa]">
+                <i class="fa-solid fa-sliders text-sm"></i>
             </button>
         </div>
     </header>
 
     <!-- 합계 카드 -->
+    <!-- 3번 수정: 3칸 고정 너비로 목표합계 위치 고정 -->
     <div class="bg-[#1a1a1a] px-3.5 py-2.5 rounded-xl border border-[#333] mb-3 shadow-lg">
-        <div class="flex items-center justify-between">
-            <div>
+        <div class="flex items-center">
+            <!-- 현재 합계 (flex:1) -->
+            <div class="flex-1 min-w-0">
                 <div class="text-[9px] text-[#888] font-bold mb-1">현재 합계</div>
-                <div class="flex items-center gap-1.5">
+                <div class="flex items-center gap-1.5 flex-wrap">
                     <span class="text-base font-black text-white tight-num" id="current-total">$0</span>
-                    <span class="bg-[#2d2d2d] text-[#aaa] text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1">
+                    <span class="bg-[#2d2d2d] text-[#aaa] text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1 whitespace-nowrap">
                         <i class="fa-solid fa-wallet text-[8px]"></i>
                         <span id="current-cash-ratio">0.0%</span>
                     </span>
                 </div>
             </div>
-            <div class="w-px h-7 bg-[#333]"></div>
-            <div class="text-right cursor-pointer" onclick="editTargetTotal()">
-                <div class="text-[9px] text-[#D97757] font-bold mb-1 flex items-center justify-end gap-1">
+            <div class="w-px h-7 bg-[#333] mx-2 flex-shrink-0"></div>
+            <!-- 목표 합계 (flex:1) -->
+            <div class="flex-1 min-w-0 cursor-pointer" onclick="editTargetTotal()">
+                <div class="text-[9px] text-[#D97757] font-bold mb-1 flex items-center gap-1">
                     목표 합계 <i class="fa-solid fa-pen text-[8px] opacity-60"></i>
                 </div>
-                <div class="flex items-center justify-end gap-1.5">
+                <div class="flex items-center gap-1.5 flex-wrap">
                     <span class="text-base font-black text-white tight-num" id="target-total">$0</span>
-                    <span class="bg-[#D97757]/15 text-[#D97757] border border-[#D97757]/30 text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1">
+                    <span class="bg-[#D97757]/15 text-[#D97757] border border-[#D97757]/30 text-[9px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1 whitespace-nowrap">
                         <i class="fa-solid fa-wallet text-[8px]"></i>
                         <span id="target-cash-ratio">0.0%</span>
                     </span>
                 </div>
             </div>
-            <div class="w-px h-7 bg-[#333]"></div>
-            <div class="text-right cursor-pointer" onclick="editGatherDate()">
+            <div class="w-px h-7 bg-[#333] mx-2 flex-shrink-0"></div>
+            <!-- 모으기: 고정 너비로 레이아웃 안 틀어지게 -->
+            <div class="w-[62px] flex-shrink-0 text-right cursor-pointer" onclick="editGatherDate()">
                 <div class="text-[9px] text-[#888] font-bold mb-1">모으기</div>
-                <div class="text-[10px] font-bold text-[#555]" id="gather-date-lbl">미설정</div>
+                <!-- 날짜 있을 때: 26-06-30 (8글자), 없을 때: 미설정 — 동일 font-size로 높이 고정 -->
+                <div class="text-[10px] font-bold text-[#555] leading-tight" id="gather-date-lbl">미설정</div>
             </div>
         </div>
     </div>
@@ -150,8 +153,6 @@
 
 <script>
 const LS_KEY = 'portfolio_v1';
-
-// ─── 기본 데이터 (최초 1회만 사용) ───
 const DEFAULT_PORTFOLIO = [
     { id:1, ticker:'SGOV', currentAmt:18568, targetPct:25.0, isCash:true,  group:'현금성' },
     { id:2, ticker:'PICK', currentAmt:3450,  targetPct:5.0,  isCash:true,  group:'현금성' },
@@ -162,23 +163,20 @@ const DEFAULT_PORTFOLIO = [
     { id:7, ticker:'IONQ', currentAmt:742,   targetPct:1.0,  isCash:false, group:'기타'   },
 ];
 
-// ─── 상태 변수 ───
 let portfolio, targetTotalOverride, gatherDate, mode, activeTgtId, activeUpdateIdx;
 let ALL_GROUPS = ['현금성','채권','빅테크','ETF','기타'];
-const LOCKED_GROUP = '현금성'; // 삭제/이름변경 불가
+const LOCKED_GROUP = '현금성';
 
-// ─── localStorage 저장/불러오기 ───
-function saveState() {
-    const state = {
-        portfolio,
-        targetTotalOverride,
-        gatherDate: gatherDate ? gatherDate.toISOString() : null,
-        allGroups: ALL_GROUPS,
-    };
-    localStorage.setItem(LS_KEY, JSON.stringify(state));
-    showToast();
+// ── 4번 수정: 고스트 전역 추적 → 모드 전환 시 반드시 제거 ──
+let _ghost = null;
+function removeGhost() {
+    if (_ghost) { _ghost.remove(); _ghost = null; }
 }
 
+function saveState() {
+    localStorage.setItem(LS_KEY, JSON.stringify({ portfolio, targetTotalOverride, gatherDate: gatherDate ? gatherDate.toISOString() : null, allGroups: ALL_GROUPS }));
+    showToast();
+}
 function loadState() {
     try {
         const raw = localStorage.getItem(LS_KEY);
@@ -188,34 +186,23 @@ function loadState() {
             targetTotalOverride = s.targetTotalOverride ?? null;
             gatherDate          = s.gatherDate ? new Date(s.gatherDate) : null;
             ALL_GROUPS          = s.allGroups  || ALL_GROUPS;
-        } else {
-            resetToDefault();
-        }
-    } catch(e) {
-        resetToDefault();
-    }
-    mode            = 'view';
-    activeTgtId     = null;
-    activeUpdateIdx = 0;
+        } else { resetToDefault(); }
+    } catch(e) { resetToDefault(); }
+    mode = 'view'; activeTgtId = null; activeUpdateIdx = 0;
 }
-
 function resetToDefault() {
-    portfolio           = JSON.parse(JSON.stringify(DEFAULT_PORTFOLIO));
-    targetTotalOverride = null;
-    gatherDate          = null;
-    ALL_GROUPS          = ['현금성','채권','빅테크','ETF','기타'];
+    portfolio = JSON.parse(JSON.stringify(DEFAULT_PORTFOLIO));
+    targetTotalOverride = null; gatherDate = null;
+    ALL_GROUPS = ['현금성','채권','빅테크','ETF','기타'];
 }
 
-// ─── 토스트 ───
 let toastTimer;
 function showToast() {
     const t = document.getElementById('toast');
-    t.classList.add('show');
-    clearTimeout(toastTimer);
+    t.classList.add('show'); clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
 }
 
-// ─── 계산 ───
 function calcTotals() {
     const cur = portfolio.reduce((s,i) => s + Number(i.currentAmt), 0);
     const tgt = targetTotalOverride !== null ? targetTotalOverride : cur;
@@ -230,38 +217,39 @@ function tradingDays(from, to) {
 }
 function tgtPctSum() { return portfolio.reduce((s,i) => s + Number(i.targetPct), 0); }
 
-// ─── 모드 ───
 function toggleMode(m) {
+    removeGhost(); // ← 모드 전환 시 항상 고스트 제거
     mode = (mode===m) ? 'view' : m;
     if (mode==='update') activeUpdateIdx = 0;
-    updateModeButtons();
-    render();
+    updateModeButtons(); render();
     if (mode==='update') focusUpdateRow(0);
 }
 function updateModeButtons() {
     ['update','edit'].forEach(m2 => {
         document.getElementById('btn-'+m2).className = (mode===m2)
-            ? 'flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border bg-[#D97757]/15 border-[#D97757]/50 text-[#D97757]'
-            : 'flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border bg-[#1a1a1a] border-[#333] text-[#aaa]';
+            ? 'flex items-center justify-center w-8 h-8 rounded-lg border bg-[#D97757]/15 border-[#D97757]/50 text-[#D97757]'
+            : 'flex items-center justify-center w-8 h-8 rounded-lg border bg-[#1a1a1a] border-[#333] text-[#aaa]';
     });
 }
 
-// ─── 렌더 ───
 function render() {
+    removeGhost(); // ← render 시에도 혹시 남은 고스트 제거
     const t = calcTotals();
     document.getElementById('current-total').textContent      = '$'+Math.round(t.cur).toLocaleString();
     document.getElementById('current-cash-ratio').textContent = t.curCashRatio.toFixed(1)+'%';
     document.getElementById('target-total').textContent       = '$'+Math.round(t.tgt).toLocaleString();
     document.getElementById('target-cash-ratio').textContent  = t.tgtCashPct.toFixed(1)+'%';
 
-    // 날짜 라벨 복원
+    // 3번 수정: 날짜 표기 YY-MM-DD (26-06-30)
     const dlbl = document.getElementById('gather-date-lbl');
     if (gatherDate) {
-        dlbl.textContent  = gatherDate.toISOString().slice(0,10);
-        dlbl.className    = 'text-[10px] font-bold text-[#D97757]';
+        const iso = gatherDate.toISOString().slice(0,10); // 2026-06-30
+        const short = iso.slice(2);                        // 26-06-30
+        dlbl.textContent = short;
+        dlbl.className   = 'text-[10px] font-bold text-[#D97757] leading-tight';
     } else {
-        dlbl.textContent  = '미설정';
-        dlbl.className    = 'text-[10px] font-bold text-[#555]';
+        dlbl.textContent = '미설정';
+        dlbl.className   = 'text-[10px] font-bold text-[#555] leading-tight';
     }
 
     const hdr = document.getElementById('col-header');
@@ -296,11 +284,10 @@ function renderView(lc, t) {
         const ghdr = document.createElement('div');
         ghdr.className='group-hdr'; ghdr.textContent=g;
         lc.appendChild(ghdr);
-
         items.forEach(item => {
-            const curPct  = t.cur>0 ? item.currentAmt/t.cur*100 : 0;
-            const tgtAmt  = t.tgt * item.targetPct / 100;
-            const diff    = tgtAmt - item.currentAmt;
+            const curPct = t.cur>0 ? item.currentAmt/t.cur*100 : 0;
+            const tgtAmt = t.tgt * item.targetPct / 100;
+            const diff   = tgtAmt - item.currentAmt;
             let actionText='-', actionColor='text-[#555]';
             if (diff > 1)  { actionText='+$'+Math.round(diff).toLocaleString();            actionColor='text-[#ef4444]'; }
             if (diff < -1) { actionText='-$'+Math.abs(Math.round(diff)).toLocaleString();  actionColor='text-[#3b82f6]'; }
@@ -372,185 +359,124 @@ function focusUpdateRow(idx) {
 function onUpdateKey(e, idx) {
     if (e.key==='Enter'||e.key==='Tab') {
         e.preventDefault();
-        const inp=document.getElementById('upd-inp-'+idx);
-        const v=parseFloat(inp.value); if(!isNaN(v)) portfolio[idx].currentAmt=v;
+        const v=parseFloat(document.getElementById('upd-inp-'+idx).value);
+        if(!isNaN(v)) portfolio[idx].currentAmt=v;
         const next=idx+1;
         if (next<portfolio.length) { activeUpdateIdx=next; setActiveUpdateRow(next); focusUpdateRow(next); }
         else { saveAllUpdateInputs(); mode='view'; updateModeButtons(); saveState(); render(); }
     }
 }
 function saveAllUpdateInputs() {
-    portfolio.forEach((item,i)=>{
-        const el=document.getElementById('upd-inp-'+i);
-        if(el){ const v=parseFloat(el.value); if(!isNaN(v)) item.currentAmt=v; }
-    });
+    portfolio.forEach((item,i)=>{ const el=document.getElementById('upd-inp-'+i); if(el){const v=parseFloat(el.value);if(!isNaN(v))item.currentAmt=v;} });
 }
 
 // ── EDIT ──
 function renderEdit(lc) {
-    // ── 그룹 관리 섹션 ──
-    const grpSection = document.createElement('div');
-    grpSection.className = 'mb-3';
-
-    const grpTitle = document.createElement('div');
-    grpTitle.className = 'group-hdr mb-1';
-    grpTitle.textContent = '그룹 관리';
+    // 그룹 관리
+    const grpSection=document.createElement('div'); grpSection.className='mb-3';
+    const grpTitle=document.createElement('div'); grpTitle.className='group-hdr mb-1'; grpTitle.textContent='그룹 관리';
     grpSection.appendChild(grpTitle);
-
     ALL_GROUPS.forEach(g => {
-        const isLocked = g === LOCKED_GROUP;
-        const row = document.createElement('div');
-        row.className = 'flex items-center gap-2 py-1.5 border-b border-[#1e1e1e] px-1';
-
-        // 그룹명 입력 or 고정 라벨
+        const isLocked=g===LOCKED_GROUP;
+        const row=document.createElement('div'); row.className='flex items-center gap-2 py-1.5 border-b border-[#1e1e1e] px-1';
         if (isLocked) {
-            row.innerHTML = `
-                <div class="flex-1 flex items-center gap-2">
-                    <i class="fa-solid fa-lock text-[#555] text-[10px]"></i>
-                    <span class="text-xs font-bold text-[#D97757]">${g}</span>
-                    <span class="text-[9px] text-[#444]">고정 (현금성 자산)</span>
-                </div>`;
+            row.innerHTML=`<div class="flex-1 flex items-center gap-2"><i class="fa-solid fa-lock text-[#555] text-[10px]"></i><span class="text-xs font-bold text-[#D97757]">${g}</span><span class="text-[9px] text-[#444]">고정 (현금성 자산)</span></div>`;
         } else {
-            const countInGroup = portfolio.filter(p => p.group === g).length;
-            const inp = document.createElement('input');
-            inp.type = 'text';
-            inp.value = g;
-            inp.className = 'flex-1 text-xs font-bold';
-            inp.style.cssText = 'padding:4px 7px;';
-            inp.onchange = () => {
-                const newName = inp.value.trim();
-                if (!newName || ALL_GROUPS.includes(newName)) { inp.value = g; return; }
-                const idx = ALL_GROUPS.indexOf(g);
-                ALL_GROUPS[idx] = newName;
-                portfolio.forEach(p => { if (p.group === g) p.group = newName; });
-                saveState(); render();
-            };
-
-            const countBadge = document.createElement('span');
-            countBadge.className = 'text-[9px] text-[#555] font-bold';
-            countBadge.textContent = countInGroup + '개';
-
-            const delBtn = document.createElement('button');
-            delBtn.className = 'text-[#ef4444] text-sm pl-1';
-            delBtn.innerHTML = '<i class="fa-solid fa-circle-minus"></i>';
-            delBtn.onclick = () => {
-                if (countInGroup > 0) {
-                    // 속한 종목이 있으면 이동 확인 없이 첫 번째 다른 그룹으로
-                    const fallback = ALL_GROUPS.find(x => x !== g) || LOCKED_GROUP;
-                    portfolio.forEach(p => { if (p.group === g) p.group = fallback; });
-                }
-                ALL_GROUPS = ALL_GROUPS.filter(x => x !== g);
-                saveState(); render();
-            };
-
-            row.appendChild(inp);
-            row.appendChild(countBadge);
-            row.appendChild(delBtn);
+            const countInGroup=portfolio.filter(p=>p.group===g).length;
+            const inp=document.createElement('input'); inp.type='text'; inp.value=g; inp.className='flex-1 text-xs font-bold'; inp.style.cssText='padding:4px 7px;';
+            inp.onchange=()=>{ const newName=inp.value.trim(); if(!newName||ALL_GROUPS.includes(newName)){inp.value=g;return;} const idx=ALL_GROUPS.indexOf(g); ALL_GROUPS[idx]=newName; portfolio.forEach(p=>{if(p.group===g)p.group=newName;}); saveState(); render(); };
+            const badge=document.createElement('span'); badge.className='text-[9px] text-[#555] font-bold'; badge.textContent=countInGroup+'개';
+            const delBtn=document.createElement('button'); delBtn.className='text-[#ef4444] text-sm pl-1'; delBtn.innerHTML='<i class="fa-solid fa-circle-minus"></i>';
+            delBtn.onclick=()=>{ if(countInGroup>0){const fb=ALL_GROUPS.find(x=>x!==g)||LOCKED_GROUP; portfolio.forEach(p=>{if(p.group===g)p.group=fb;});} ALL_GROUPS=ALL_GROUPS.filter(x=>x!==g); saveState(); render(); };
+            row.appendChild(inp); row.appendChild(badge); row.appendChild(delBtn);
         }
         grpSection.appendChild(row);
     });
-
-    // 그룹 추가 버튼
-    const addGrpBtn = document.createElement('button');
-    addGrpBtn.className = 'w-full mt-1.5 border border-dashed border-[#2a2a2a] text-[#555] py-2 rounded-lg text-xs font-bold active:bg-[#1a1a1a]';
-    addGrpBtn.innerHTML = '<i class="fa-solid fa-plus mr-1"></i> 그룹 추가';
-    addGrpBtn.onclick = () => {
-        const name = '새그룹' + (ALL_GROUPS.length);
-        ALL_GROUPS.push(name);
-        saveState(); render();
-    };
+    const addGrpBtn=document.createElement('button');
+    addGrpBtn.className='w-full mt-1.5 border border-dashed border-[#2a2a2a] text-[#555] py-2 rounded-lg text-xs font-bold active:bg-[#1a1a1a]';
+    addGrpBtn.innerHTML='<i class="fa-solid fa-plus mr-1"></i> 그룹 추가';
+    addGrpBtn.onclick=()=>{ ALL_GROUPS.push('새그룹'+ALL_GROUPS.length); saveState(); render(); };
     grpSection.appendChild(addGrpBtn);
     lc.appendChild(grpSection);
 
-    // 구분선
-    const sep = document.createElement('div');
-    sep.className = 'group-hdr mt-2 mb-1';
-    sep.textContent = '종목';
+    const sep=document.createElement('div'); sep.className='group-hdr mt-2 mb-1'; sep.textContent='종목';
     lc.appendChild(sep);
 
-    // ── 종목 리스트 ──
     const wrap=document.createElement('div'); wrap.id='edit-list';
     lc.appendChild(wrap);
     portfolio.forEach(item=>wrap.appendChild(buildEditRow(item)));
+
     const addBtn=document.createElement('button');
     addBtn.className='w-full mt-3 border border-dashed border-[#333] text-[#666] py-3 rounded-xl text-sm font-bold active:bg-[#1a1a1a]';
     addBtn.innerHTML='<i class="fa-solid fa-plus mr-1"></i> 새 종목 추가';
-    addBtn.onclick=()=>{ portfolio.push({id:Date.now(),ticker:'',currentAmt:0,targetPct:0,isCash:false,group: ALL_GROUPS[ALL_GROUPS.length-1]||'기타'}); saveState(); render(); };
+    addBtn.onclick=()=>{ portfolio.push({id:Date.now(),ticker:'',currentAmt:0,targetPct:0,isCash:false,group:ALL_GROUPS[ALL_GROUPS.length-1]||'기타'}); saveState(); render(); };
     lc.appendChild(addBtn);
     initSortable(wrap);
 }
+
 function buildEditRow(item) {
     const cashColor=item.isCash?'text-[#D97757]':'text-[#444]';
     const groupOpts=ALL_GROUPS.map(g=>`<option value="${g}" ${item.group===g?'selected':''}>${g}</option>`).join('');
-    const row=document.createElement('div');
-    row.className='edit-row'; row.dataset.id=item.id;
+    const row=document.createElement('div'); row.className='edit-row'; row.dataset.id=item.id;
     row.innerHTML=`
         <div class="drag-handle-btn w-[8%] flex justify-center"><i class="fa-solid fa-grip-lines text-[#3a3a3a]"></i></div>
-        <div class="w-[22%]">
-            <input type="text" class="w-full text-xs font-bold uppercase" style="padding:4px 6px;"
-                value="${item.ticker}"
-                onchange="portfolio.find(p=>p.id===${item.id}).ticker=this.value.toUpperCase(); saveState();">
-        </div>
-        <div class="w-[18%] flex justify-center">
-            <button onclick="toggleCash(${item.id})" class="text-lg transition-colors ${cashColor}">
-                <i class="fa-solid fa-wallet"></i>
-            </button>
-        </div>
-        <div class="w-[22%]">
-            <select style="background:#1e1e1e;border:1px solid #333;color:#aaa;border-radius:5px;padding:3px 4px;font-size:10px;width:100%;outline:none;"
-                onchange="portfolio.find(p=>p.id===${item.id}).group=this.value; saveState();">
-                ${groupOpts}
-            </select>
-        </div>
-        <div class="w-[30%] flex justify-end pr-2">
-            <button onclick="deleteItem(${item.id})" class="text-[#ef4444]">
-                <i class="fa-solid fa-circle-minus text-base"></i>
-            </button>
-        </div>`;
+        <div class="w-[22%]"><input type="text" class="w-full text-xs font-bold uppercase" style="padding:4px 6px;" value="${item.ticker}" onchange="portfolio.find(p=>p.id===${item.id}).ticker=this.value.toUpperCase();saveState();"></div>
+        <div class="w-[18%] flex justify-center"><button onclick="toggleCash(${item.id})" class="text-lg transition-colors ${cashColor}"><i class="fa-solid fa-wallet"></i></button></div>
+        <div class="w-[22%]"><select style="background:#1e1e1e;border:1px solid #333;color:#aaa;border-radius:5px;padding:3px 4px;font-size:10px;width:100%;outline:none;" onchange="portfolio.find(p=>p.id===${item.id}).group=this.value;saveState();">${groupOpts}</select></div>
+        <div class="w-[30%] flex justify-end pr-2"><button onclick="deleteItem(${item.id})" class="text-[#ef4444]"><i class="fa-solid fa-circle-minus text-base"></i></button></div>`;
     return row;
 }
+
+// ── 4번 수정: 고스트를 _ghost 전역에 저장, 이벤트 리스너 확실히 정리 ──
 function initSortable(list) {
-    let dragging=null, ghost=null, startY=0;
+    let dragging=null, startY=0;
     function getRows(){ return Array.from(list.querySelectorAll('.edit-row')); }
-    function onPointerDown(e) {
+
+    function onDown(e) {
         if (!e.target.closest('.drag-handle-btn')) return;
         e.preventDefault();
-        dragging=e.target.closest('.edit-row');
-        startY=e.touches?e.touches[0].clientY:e.clientY;
-        const rect=dragging.getBoundingClientRect();
-        ghost=dragging.cloneNode(true);
-        ghost.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;background:#1c1c2e;box-shadow:0 12px 40px rgba(0,0,0,0.8);border-radius:8px;z-index:9999;pointer-events:none;opacity:0.97;`;
-        document.body.appendChild(ghost);
-        dragging.style.opacity='0';
-        document.addEventListener('pointermove',onMove,{passive:false});
-        document.addEventListener('pointerup',onUp);
-        document.addEventListener('touchmove',onTMove,{passive:false});
-        document.addEventListener('touchend',onUp);
+        removeGhost(); // 혹시 이전 고스트 잔존 시 제거
+        dragging = e.target.closest('.edit-row');
+        startY = e.touches ? e.touches[0].clientY : e.clientY;
+        const rect = dragging.getBoundingClientRect();
+        _ghost = dragging.cloneNode(true);
+        _ghost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;background:#1c1c2e;box-shadow:0 12px 40px rgba(0,0,0,0.8);border-radius:8px;z-index:9999;pointer-events:none;opacity:0.97;`;
+        document.body.appendChild(_ghost);
+        dragging.style.opacity = '0';
+        document.addEventListener('pointermove', onMove, {passive:false});
+        document.addEventListener('pointerup',   onUp);
+        document.addEventListener('touchmove',   onTMove, {passive:false});
+        document.addEventListener('touchend',    onUp);
     }
-    function onMove(e){ if(!ghost)return; e.preventDefault(); moveGhost(e.clientY); reorder(e.clientY); startY=e.clientY; }
-    function onTMove(e){ if(!ghost)return; e.preventDefault(); moveGhost(e.touches[0].clientY); reorder(e.touches[0].clientY); startY=e.touches[0].clientY; }
-    function moveGhost(cy){ const delta=cy-startY; ghost.style.top=(parseFloat(ghost.style.top)+delta)+'px'; }
-    function reorder(cy){
-        getRows().forEach(r=>{
-            if(r===dragging)return;
+    function onMove(e)  { if(!_ghost)return; e.preventDefault(); move(e.clientY); }
+    function onTMove(e) { if(!_ghost)return; e.preventDefault(); move(e.touches[0].clientY); }
+    function move(cy) {
+        const delta = cy - startY;
+        _ghost.style.top = (parseFloat(_ghost.style.top) + delta) + 'px';
+        startY = cy;
+        getRows().forEach(r => {
+            if(r===dragging) return;
             const rect=r.getBoundingClientRect(), mid=rect.top+rect.height/2;
             if(cy>mid-4&&cy<mid+rect.height){ getRows().indexOf(dragging)>getRows().indexOf(r)?r.before(dragging):r.after(dragging); }
         });
     }
-    function onUp(){
-        document.removeEventListener('pointermove',onMove); document.removeEventListener('pointerup',onUp);
-        document.removeEventListener('touchmove',onTMove);  document.removeEventListener('touchend',onUp);
-        if(ghost){ghost.remove();ghost=null;}
-        if(dragging){dragging.style.opacity='';}
-        const newOrder=getRows().map(r=>portfolio.find(p=>p.id===Number(r.dataset.id))).filter(Boolean);
-        portfolio=newOrder; dragging=null;
-        setTimeout(()=>{ saveState(); render(); },80);
+    function onUp() {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup',   onUp);
+        document.removeEventListener('touchmove',   onTMove);
+        document.removeEventListener('touchend',    onUp);
+        removeGhost(); // ← 드롭 즉시 제거
+        if (dragging) { dragging.style.opacity=''; dragging=null; }
+        const newOrder = getRows().map(r=>portfolio.find(p=>p.id===Number(r.dataset.id))).filter(Boolean);
+        portfolio = newOrder;
+        setTimeout(()=>{ saveState(); render(); }, 80);
     }
-    list.addEventListener('pointerdown',onPointerDown);
-    list.addEventListener('touchstart',e=>{
-        if(e.target.closest('.drag-handle-btn')) onPointerDown({target:e.target,preventDefault:()=>e.preventDefault(),clientY:e.touches[0].clientY,touches:e.touches});
+    list.addEventListener('pointerdown', onDown);
+    list.addEventListener('touchstart', e=>{
+        if(e.target.closest('.drag-handle-btn')) onDown(e.touches[0]&&{target:e.target,preventDefault:()=>e.preventDefault(),clientY:e.touches[0].clientY,touches:e.touches});
     },{passive:false});
 }
+
 function deleteItem(id){ portfolio=portfolio.filter(p=>p.id!==id); saveState(); render(); }
 function toggleCash(id){ const i=portfolio.find(p=>p.id===id); if(i){i.isCash=!i.isCash; saveState(); render();} }
 
@@ -576,8 +502,7 @@ function updateTgtPopSum(){
 }
 function onTgtInput(){
     const v=parseFloat(document.getElementById('tgt-pop-input').value);
-    if(!isNaN(v)&&activeTgtId){ portfolio.find(p=>p.id===activeTgtId).targetPct=v; updateTgtPopSum();
-        const t=calcTotals(); document.getElementById('target-cash-ratio').textContent=t.tgtCashPct.toFixed(1)+'%'; }
+    if(!isNaN(v)&&activeTgtId){ portfolio.find(p=>p.id===activeTgtId).targetPct=v; updateTgtPopSum(); const t=calcTotals(); document.getElementById('target-cash-ratio').textContent=t.tgtCashPct.toFixed(1)+'%'; }
 }
 function applyTgt(){
     const v=parseFloat(document.getElementById('tgt-pop-input').value);
@@ -586,7 +511,6 @@ function applyTgt(){
 }
 function closeTgtPop(){ document.getElementById('tgt-pop').classList.remove('show'); activeTgtId=null; }
 
-// ── 공통 UI ──
 function closeBackdrop(){
     document.getElementById('backdrop').classList.remove('open');
     document.getElementById('backdrop').style.background='';
@@ -599,7 +523,6 @@ function openSheet(id){
     document.getElementById(id).classList.add('open');
 }
 
-// ── 목표 총액 ──
 function editTargetTotal(){
     document.getElementById('total-input').value=targetTotalOverride!==null?targetTotalOverride:Math.round(calcTotals().cur);
     openSheet('total-sheet');
@@ -610,7 +533,6 @@ function applyTotalSheet(){
     closeBackdrop(); saveState(); render();
 }
 
-// ── 날짜 ──
 function editGatherDate(){ openSheet('date-sheet'); }
 function onDateInput(){
     const v=document.getElementById('date-input').value;
@@ -624,8 +546,7 @@ function onDateInput(){
 }
 function applyDate(){
     const v=document.getElementById('date-input').value; if(!v)return;
-    gatherDate=new Date(v);
-    closeBackdrop(); saveState(); render();
+    gatherDate=new Date(v); closeBackdrop(); saveState(); render();
 }
 function clearDate(){
     gatherDate=null;
@@ -634,7 +555,6 @@ function clearDate(){
     closeBackdrop(); saveState(); render();
 }
 
-// ─── 시작 ───
 loadState();
 render();
 </script>
