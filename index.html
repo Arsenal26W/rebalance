@@ -12,7 +12,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #121212; color: #f1f1f1; font-family: 'Noto Sans KR', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: #121212; color: #f1f1f1; font-family: 'Noto Sans KR', sans-serif; -webkit-tap-highlight-color: transparent; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+        #fixed-top { flex-shrink: 0; padding: 12px 12px 0; max-width: 448px; width: 100%; margin: 0 auto; }
+        #scroll-area { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 12px 40px; max-width: 448px; width: 100%; margin: 0 auto; }
         input[type="number"], input[type="text"] { background-color: #1e1e1e; border: 1px solid #333; color: #fff; border-radius: 6px; padding: 6px 10px; outline: none; transition: border-color 0.2s; font-weight: bold; font-family: 'Noto Sans KR', sans-serif; }
         input[type="number"]:focus, input[type="text"]:focus { border-color: #D97757; }
         input[type="number"] { text-align: right; }
@@ -35,8 +37,8 @@
         .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
     </style>
 </head>
-<body class="p-3 pb-20 select-none">
-<div class="max-w-md mx-auto">
+<body class="select-none">
+<div id="fixed-top">
 
     <!-- 헤더 -->
     <header class="flex justify-between items-center mb-3 px-1">
@@ -59,10 +61,8 @@
     </header>
 
     <!-- 합계 카드 -->
-    <!-- 3번 수정: 3칸 고정 너비로 목표합계 위치 고정 -->
     <div class="bg-[#1a1a1a] px-3.5 py-2.5 rounded-xl border border-[#333] mb-3 shadow-lg">
         <div class="flex items-center">
-            <!-- 현재 합계 (flex:1) -->
             <div class="flex-1 min-w-0">
                 <div class="text-[9px] text-[#888] font-bold mb-1">현재 합계</div>
                 <div class="flex items-center gap-1.5 flex-wrap">
@@ -74,7 +74,6 @@
                 </div>
             </div>
             <div class="w-px h-7 bg-[#333] mx-2 flex-shrink-0"></div>
-            <!-- 목표 합계 (flex:1) -->
             <div class="flex-1 min-w-0 cursor-pointer" onclick="editTargetTotal()">
                 <div class="text-[9px] text-[#D97757] font-bold mb-1 flex items-center gap-1">
                     목표 합계 <i class="fa-solid fa-pen text-[8px] opacity-60"></i>
@@ -88,22 +87,24 @@
                 </div>
             </div>
             <div class="w-px h-7 bg-[#333] mx-2 flex-shrink-0"></div>
-            <!-- 모으기: 고정 너비로 레이아웃 안 틀어지게 -->
             <div class="w-[62px] flex-shrink-0 text-right cursor-pointer" onclick="editGatherDate()">
                 <div class="text-[9px] text-[#888] font-bold mb-1">모으기</div>
-                <!-- 날짜 있을 때: 26-06-30 (8글자), 없을 때: 미설정 — 동일 font-size로 높이 고정 -->
                 <div class="text-[10px] font-bold text-[#555] leading-tight" id="gather-date-lbl">미설정</div>
             </div>
         </div>
     </div>
 
-    <!-- 컬럼 헤더 -->
-    <div id="col-header" class="flex items-center py-1.5 text-[9px] text-[#555] border-b border-[#2d2d2d] px-1 font-bold mb-0.5">
+    <!-- 컬럼 헤더 (고정) -->
+    <div id="col-header" class="flex items-center py-1.5 text-[9px] text-[#555] border-b border-[#2d2d2d] px-1 font-bold">
         <div class="w-[17%]">종목</div>
         <div class="w-[28%] text-right pr-1">현재</div>
         <div class="w-[28%] text-right pr-1">목표</div>
         <div class="w-[27%] text-right">리밸런싱</div>
     </div>
+</div>
+
+<!-- 스크롤 영역 -->
+<div id="scroll-area">
     <div id="list-container"></div>
 </div>
 
