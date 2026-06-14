@@ -575,6 +575,11 @@ function closeTgtPop(){
     document.getElementById('tgt-pop').classList.remove('show');
     document.getElementById('tgt-pop').style.bottom = 'auto';
     activeTgtId = null;
+    // backdrop도 즉시 비활성화 → 팝업 닫힌 직후 스크롤 바로 가능
+    const bd = document.getElementById('backdrop');
+    bd.style.transition = 'none';
+    bd.classList.remove('open');
+    bd.style.background = '';
 }
 
 function closeBackdrop(){
