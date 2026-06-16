@@ -318,7 +318,7 @@ function renderPeek(lc, t) {
         leftPanel.style.cssText = 'width:33.333%;background:#161616;flex-shrink:0;';
         leftPanel.innerHTML = `
             <div class="text-[10px] text-[#888] font-black leading-tight mb-1.5">${g}</div>
-            <div class="flex gap-6">
+            <div class="flex gap-4">
                 <span class="text-[11px] text-[#666] font-bold tight-num">${grpCurPct.toFixed(1)}%</span>
                 <span class="text-[11px] text-[#D97757] font-black tight-num">${grpTgtPct.toFixed(1)}%</span>
             </div>`;
@@ -335,12 +335,12 @@ function renderPeek(lc, t) {
             const row = document.createElement('div');
             row.className = 'flex items-center px-2 py-[2px]' + (isLast ? '' : ' border-b border-[#202020]');
             row.innerHTML = `
-                <div class="w-1/3 font-black ${tickerColor} text-[12px] truncate tracking-tighter">${item.ticker}</div>
-                <div class="w-1/3 text-right pr-1">
-                    <span class="text-[#888] text-[11px] font-bold tight-num">${curPct.toFixed(1)}%</span>
+                <div class="w-1/3 font-black ${tickerColor} text-[12px] truncate tracking-tighter leading-none">${item.ticker}</div>
+                <div class="w-1/3 text-right pr-1 leading-none">
+                    <span class="text-[#888] text-[11px] font-bold tight-num" style="vertical-align:middle;">${curPct.toFixed(1)}%</span>
                 </div>
-                <div class="w-1/3 text-right">
-                    <span class="text-[#D97757] text-[11px] font-black tight-num">${item.targetPct.toFixed(1)}%</span>
+                <div class="w-1/3 text-right leading-none">
+                    <span class="text-[#D97757] text-[11px] font-black tight-num" style="vertical-align:middle;">${item.targetPct.toFixed(1)}%</span>
                 </div>`;
             rightPanel.appendChild(row);
         });
