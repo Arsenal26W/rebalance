@@ -50,6 +50,10 @@
                 style="height:1.2em;width:auto;display:inline-block;vertical-align:middle;object-fit:contain;">
         </h1>
         <div class="flex items-center gap-2">
+            <button id="btn-peek" onclick="toggleMode('peek')"
+                class="flex items-center justify-center w-8 h-8 rounded-lg border bg-[#1a1a1a] border-[#333] text-[#aaa]">
+                <i class="fa-solid fa-chart-pie text-sm"></i>
+            </button>
             <button id="btn-update" onclick="toggleMode('update')"
                 class="flex items-center justify-center w-8 h-8 rounded-lg border bg-[#1a1a1a] border-[#333] text-[#aaa]">
                 <i class="fa-solid fa-pencil text-sm"></i>
@@ -62,7 +66,7 @@
     </header>
 
     <!-- 합계 카드 -->
-    <div class="bg-[#1a1a1a] px-3.5 py-2.5 rounded-xl border border-[#333] mb-3 shadow-lg">
+    <div id="summary-card" class="bg-[#1a1a1a] px-3.5 py-2.5 rounded-xl border border-[#333] mb-3 shadow-lg">
         <div class="flex items-center">
             <div class="flex-1 min-w-0">
                 <div class="text-[9px] text-[#888] font-bold mb-1">현재 합계</div>
@@ -227,15 +231,17 @@ function tradingDays(from, to) {
 function tgtPctSum() { return portfolio.reduce((s,i) => s + Number(i.targetPct), 0); }
 
 function toggleMode(m) {
-    removeGhost(); // ← 모드 전환 시 항상 고스트 제거
+    removeGhost();
     mode = (mode===m) ? 'view' : m;
     if (mode==='update') activeUpdateIdx = 0;
     updateModeButtons(); render();
     if (mode==='update') focusUpdateRow(0);
 }
 function updateModeButtons() {
-    ['update','edit'].forEach(m2 => {
-        document.getElementById('btn-'+m2).className = (mode===m2)
+    ['peek','update','edit'].forEach(m2 => {
+        const el = document.getElementById('btn-'+m2);
+        if (!el) return;
+        el.className = (mode===m2)
             ? 'flex items-center justify-center w-8 h-8 rounded-lg border bg-[#D97757]/15 border-[#D97757]/50 text-[#D97757]'
             : 'flex items-center justify-center w-8 h-8 rounded-lg border bg-[#1a1a1a] border-[#333] text-[#aaa]';
     });
@@ -261,6 +267,9 @@ function render() {
         dlbl.className   = 'text-[10px] font-bold text-[#555] leading-tight';
     }
 
+    // 보기모드: 합계카드 숨기기 (id로 정확히 타겟)
+    document.getElementById('summary-card').style.display = (mode==='peek') ? 'none' : '';
+
     const hdr = document.getElementById('col-header');
     const lc  = document.getElementById('list-container');
     lc.innerHTML = '';
@@ -269,6 +278,16 @@ function render() {
         hdr.style.display='flex';
         hdr.innerHTML=`<div class="w-[17%]">종목</div><div class="w-[28%] text-right pr-1">현재</div><div class="w-[28%] text-right pr-1">목표</div><div class="w-[27%] text-right">리밸런싱</div>`;
         renderView(lc, t);
+    } else if (mode==='peek') {
+        hdr.style.display='flex';
+        hdr.innerHTML=`
+            <div style="width:33.333%;flex-shrink:0;" class="text-[9px] text-[#444]">자산군</div>
+            <div style="width:66.666%;" class="flex">
+                <div class="w-1/3 text-[9px] text-[#555] px-2">종목</div>
+                <div class="w-1/3 text-right pr-1 text-[9px] text-[#555]">현재</div>
+                <div class="w-1/3 text-right text-[9px] text-[#555]">목표</div>
+            </div>`;
+        renderPeek(lc, t);
     } else if (mode==='update') {
         hdr.style.display='flex';
         hdr.innerHTML=`<div class="w-[28%]">종목</div><div class="w-[72%] text-right">현재 금액 ($)</div>`;
@@ -278,6 +297,58 @@ function render() {
         hdr.innerHTML=`<div class="w-[8%]"></div><div class="w-[22%]">종목</div><div class="w-[18%] text-center">현금</div><div class="w-[22%] text-center">그룹</div><div class="w-[30%] text-right pr-2">삭제</div>`;
         renderEdit(lc);
     }
+}
+
+// ── PEEK (보기 모드) ──
+function renderPeek(lc, t) {
+    getGroups().forEach(g => {
+        const items = portfolio.filter(i => i.group===g);
+        if (!items.length) return;
+
+        const grpCurPct = items.reduce((s,i) => s + (t.cur>0 ? i.currentAmt/t.cur*100 : 0), 0);
+        const grpTgtPct = items.reduce((s,i) => s + i.targetPct, 0);
+
+        const box = document.createElement('div');
+        box.className = 'flex items-stretch rounded-lg mb-1.5 overflow-hidden border border-[#222]';
+        box.style.background = '#181818';
+
+        // ── 왼쪽 자산군 패널: 전체 너비의 1/3 ──
+        const leftPanel = document.createElement('div');
+        leftPanel.className = 'flex flex-col justify-start items-start px-2 py-2 border-r border-[#252525]';
+        leftPanel.style.cssText = 'width:33.333%;background:#161616;flex-shrink:0;';
+        leftPanel.innerHTML = `
+            <div class="text-[10px] text-[#888] font-black leading-tight mb-1.5">${g}</div>
+            <div class="flex gap-6">
+                <span class="text-[11px] text-[#666] font-bold tight-num">${grpCurPct.toFixed(1)}%</span>
+                <span class="text-[11px] text-[#D97757] font-black tight-num">${grpTgtPct.toFixed(1)}%</span>
+            </div>`;
+
+        // ── 오른쪽 종목 리스트: 전체 너비의 2/3, 3등분 ──
+        const rightPanel = document.createElement('div');
+        rightPanel.className = 'flex flex-col justify-center';
+        rightPanel.style.cssText = 'width:66.666%;';
+
+        items.forEach((item, idx) => {
+            const curPct = t.cur>0 ? item.currentAmt/t.cur*100 : 0;
+            const tickerColor = item.isCash ? 'text-[#D97757]' : 'text-white';
+            const isLast = idx === items.length - 1;
+            const row = document.createElement('div');
+            row.className = 'flex items-center px-2 py-[5px]' + (isLast ? '' : ' border-b border-[#202020]');
+            row.innerHTML = `
+                <div class="w-1/3 font-black ${tickerColor} text-[12px] truncate tracking-tighter">${item.ticker}</div>
+                <div class="w-1/3 text-right pr-1">
+                    <span class="text-[#888] text-[11px] font-bold tight-num">${curPct.toFixed(1)}%</span>
+                </div>
+                <div class="w-1/3 text-right">
+                    <span class="text-[#D97757] text-[11px] font-black tight-num">${item.targetPct.toFixed(1)}%</span>
+                </div>`;
+            rightPanel.appendChild(row);
+        });
+
+        box.appendChild(leftPanel);
+        box.appendChild(rightPanel);
+        lc.appendChild(box);
+    });
 }
 
 // ── VIEW ──
