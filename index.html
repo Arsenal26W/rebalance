@@ -753,7 +753,7 @@ function openMemoEditor(id) {
     ta.value = item.memo || '';
     document.getElementById('memo-del-btn').style.display = item.memo ? '' : 'none';
     openSheet('memo-sheet');
-    ta.focus({ preventScroll: true });
+    // 키보드는 자동으로 띄우지 않음 → 입력칸을 직접 눌렀을 때만 올라옴
 }
 
 function saveMemo() {
