@@ -36,6 +36,14 @@
         #edit-list { position:relative; }
         .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px); background:#1e1e1e; border:1px solid #333; color:#aaa; font-size:12px; font-weight:700; padding:8px 18px; border-radius:20px; opacity:0; pointer-events:none; transition:opacity 0.3s, transform 0.3s; z-index:9999; white-space:nowrap; }
         .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+        /* 종목 메모 */
+        .memo-btn { display:inline-flex; align-items:center; flex-shrink:0; background:none; border:0; color:#D97757; font-size:9px; line-height:1; padding:6px 4px 6px 3px; margin:-6px 0; cursor:pointer; }
+        .memo-btn:active { opacity:.6; }
+        .memo-pop { display:none; position:fixed; width:min(280px, calc(100vw - 24px)); background:#1e1e2e; border:1px solid #D97757; border-radius:10px; padding:9px 11px 6px; z-index:300; box-shadow:0 4px 20px rgba(0,0,0,0.7); }
+        .memo-pop.show { display:block; }
+        .memo-pop-body { max-height:40vh; overflow-y:auto; white-space:pre-wrap; word-break:break-word; user-select:text; -webkit-user-select:text; }
+        textarea.memo-input { background:#1e1e1e; border:1px solid #333; color:#fff; border-radius:8px; padding:10px 12px; outline:none; font-size:16px; line-height:1.5; font-family:'Noto Sans KR', sans-serif; resize:none; user-select:text; -webkit-user-select:text; }
+        textarea.memo-input:focus { border-color:#D97757; }
     </style>
 </head>
 <body class="select-none">
@@ -158,6 +166,30 @@
             <input type="number" id="total-input" class="w-full text-base" placeholder="0" style="padding:10px 12px 10px 28px;">
         </div>
         <button onclick="applyTotalSheet()" class="w-full bg-[#D97757] text-black font-black py-3.5 rounded-xl text-sm active:opacity-80">적용</button>
+    </div>
+</div>
+
+<!-- 종목 메모 입력 바텀시트 -->
+<div id="memo-sheet" class="fixed bottom-0 left-0 right-0 bg-[#171717] rounded-t-2xl z-50 bottom-sheet max-w-md mx-auto border-t border-[#333] pb-6 shadow-xl">
+    <div class="p-5">
+        <div class="text-xs text-[#888] font-bold mb-3"><span id="memo-sheet-title" class="text-[#D97757] font-black"></span> 메모</div>
+        <textarea id="memo-input" rows="5" class="memo-input w-full mb-4" placeholder="메모를 입력하세요"></textarea>
+        <div class="flex gap-2">
+            <button onclick="saveMemo()" class="flex-1 bg-[#D97757] text-black font-black py-3.5 rounded-xl text-sm active:opacity-80">저장</button>
+            <button id="memo-del-btn" onclick="deleteMemo()" class="bg-[#2d2d2d] text-[#aaa] font-bold py-3.5 px-5 rounded-xl text-sm">삭제</button>
+        </div>
+    </div>
+</div>
+
+<!-- 종목 메모 보기 팝업 -->
+<div id="memo-pop" class="memo-pop">
+    <div class="flex justify-between items-center mb-1.5">
+        <span class="text-[11px] font-black" id="memo-pop-title"></span>
+        <span class="text-[9px] text-[#666] font-bold" id="memo-pop-date"></span>
+    </div>
+    <div id="memo-pop-body" class="memo-pop-body text-[12px] text-[#ddd] leading-relaxed"></div>
+    <div class="flex justify-end mt-1">
+        <button onclick="editFromMemoPop()" class="text-[10px] font-black text-[#D97757] px-2 py-1.5 -mr-1.5 rounded active:opacity-60"><i class="fa-solid fa-pen text-[8px] mr-1"></i>수정</button>
     </div>
 </div>
 
@@ -380,7 +412,10 @@ function renderView(lc, t) {
             const row = document.createElement('div');
             row.className='flex items-center py-2.5 border-b border-[#1e1e1e] list-row px-1';
             row.innerHTML=`
-                <div class="w-[17%] font-black ${tickerColor} text-[13px] truncate tracking-tighter">${item.ticker}</div>
+                <div class="w-[17%] flex items-center min-w-0 cursor-pointer" onclick="openMemoEditor(${item.id})">
+                    <span class="font-black ${tickerColor} text-[13px] truncate tracking-tighter">${item.ticker}</span>
+                    ${item.memo ? `<button class="memo-btn" onclick="event.stopPropagation(); openMemoPop(${item.id}, this)" aria-label="${item.ticker} 메모 보기"><i class="fa-solid fa-note-sticky"></i></button>` : ''}
+                </div>
                 <div class="w-[28%] flex items-center justify-end gap-1 pr-1">
                     <span class="text-white text-xs font-bold tight-num">$${Math.round(item.currentAmt).toLocaleString()}</span>
                     <span class="bg-[#2d2d2d] text-[#aaa] text-[9px] px-1 py-0.5 rounded font-bold w-[30px] text-center">${curPct.toFixed(1)}</span>
@@ -658,7 +693,8 @@ function closeBackdrop(){
     bd.style.transition = 'none';
     bd.classList.remove('open');
     bd.style.background='';
-    closeTgtPop(); closeSheet('date-sheet'); closeSheet('total-sheet');
+    closeTgtPop(); closeMemoPop(); closeSheet('date-sheet'); closeSheet('total-sheet'); closeSheet('memo-sheet');
+    const ae = document.activeElement; if (ae && ae.id === 'memo-input') ae.blur();
 }
 function closeSheet(id){ document.getElementById(id).classList.remove('open'); }
 function openSheet(id){
@@ -697,6 +733,94 @@ function clearDate(){
     document.getElementById('date-input').value='';
     document.getElementById('date-info').textContent='날짜를 선택하세요';
     closeBackdrop(); saveState(); render();
+}
+
+// ── 종목 메모 ──
+// 메모는 종목(id)에 붙어서 저장되므로 티커 이름을 바꿔도 유지되고, 종목을 삭제하면 함께 지워짐
+let activeMemoId = null;
+
+function fmtMemoDate(iso) {
+    const d = new Date(iso); if (isNaN(d)) return '';
+    return String(d.getFullYear()).slice(2) + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function openMemoEditor(id) {
+    const item = portfolio.find(p=>p.id===id); if (!item) return;
+    closeMemoPop();
+    activeMemoId = id;
+    document.getElementById('memo-sheet-title').textContent = item.ticker || '종목';
+    const ta = document.getElementById('memo-input');
+    ta.value = item.memo || '';
+    document.getElementById('memo-del-btn').style.display = item.memo ? '' : 'none';
+    openSheet('memo-sheet');
+    ta.focus({ preventScroll: true });
+}
+
+function saveMemo() {
+    const item = portfolio.find(p=>p.id===activeMemoId);
+    const txt = document.getElementById('memo-input').value.trim();
+    let changed = false;
+    if (item) {
+        if (txt && txt !== item.memo) { item.memo = txt; item.memoAt = new Date().toISOString(); changed = true; }
+        else if (!txt && item.memo) { delete item.memo; delete item.memoAt; changed = true; }   // 내용을 다 지우고 저장하면 메모 삭제
+    }
+    activeMemoId = null;
+    closeBackdrop();
+    if (changed) saveState();
+    render();
+}
+
+function deleteMemo() {
+    const item = portfolio.find(p=>p.id===activeMemoId);
+    if (item) { delete item.memo; delete item.memoAt; }
+    activeMemoId = null;
+    closeBackdrop(); saveState(); render();
+}
+
+function openMemoPop(id, btn) {
+    const item = portfolio.find(p=>p.id===id); if (!item || !item.memo) return;
+    activeMemoId = id;
+    const title = document.getElementById('memo-pop-title');
+    title.textContent = item.ticker;
+    title.style.color = item.isCash ? '#D97757' : '#fff';
+    document.getElementById('memo-pop-date').textContent = item.memoAt ? fmtMemoDate(item.memoAt) : '';
+    document.getElementById('memo-pop-body').textContent = item.memo;
+
+    // 티커 바로 아래에 표시 (아래 공간이 부족하면 위로)
+    const pop = document.getElementById('memo-pop');
+    pop.style.visibility = 'hidden'; pop.classList.add('show');
+    const popH = pop.offsetHeight, popW = pop.offsetWidth;
+    const cell = btn.parentElement.getBoundingClientRect();
+    const scrollEl = document.getElementById('scroll-area');
+    const scrollBottom = scrollEl ? scrollEl.getBoundingClientRect().bottom : window.innerHeight;
+    const left = Math.max(12, Math.min(cell.left - 4, window.innerWidth - popW - 12));
+    pop.style.left = left + 'px'; pop.style.right = 'auto';
+    if (scrollBottom - cell.bottom >= popH + 8 || scrollBottom - cell.bottom >= cell.top) {
+        pop.style.top = (cell.bottom + 4) + 'px'; pop.style.bottom = 'auto';
+    } else {
+        pop.style.bottom = (window.innerHeight - cell.top + 4) + 'px'; pop.style.top = 'auto';
+    }
+    pop.style.visibility = '';
+    document.getElementById('memo-pop-body').scrollTop = 0;
+
+    const bd = document.getElementById('backdrop');
+    bd.style.background = 'transparent';
+    bd.style.transition = 'none';
+    bd.classList.add('open');
+}
+
+function closeMemoPop() {
+    const pop = document.getElementById('memo-pop');
+    if (!pop.classList.contains('show')) return;
+    pop.classList.remove('show');
+    const bd = document.getElementById('backdrop');
+    bd.style.transition = 'none';
+    bd.classList.remove('open');
+    bd.style.background = '';
+}
+
+function editFromMemoPop() {
+    if (activeMemoId !== null) openMemoEditor(activeMemoId);
 }
 
 loadState();
